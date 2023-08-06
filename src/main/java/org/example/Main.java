@@ -15,6 +15,7 @@ import org.zalando.logbook.Logbook;
 import org.zalando.logbook.attributes.AttributeExtractor;
 import org.zalando.logbook.attributes.CompositeAttributeExtractor;
 import org.zalando.logbook.attributes.HttpAttributes;
+import org.zalando.logbook.attributes.JwtAllMatchingClaimsExtractor;
 import org.zalando.logbook.attributes.JwtFirstMatchingClaimExtractor;
 import org.zalando.logbook.core.DefaultHttpLogWriter;
 import org.zalando.logbook.core.DefaultSink;
@@ -22,6 +23,7 @@ import org.zalando.logbook.core.WithoutBodyStrategy;
 import org.zalando.logbook.httpclient5.LogbookHttpExecHandler;
 import org.zalando.logbook.json.JsonHttpLogFormatter;
 
+import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
@@ -42,36 +44,47 @@ public class Main {
 
 
     public static void main(String[] args) throws IOException {
-        final JwtFirstMatchingClaimExtractor jwtSingleClaimExtractor = JwtFirstMatchingClaimExtractor.builder()
+        final AttributeExtractor jwtFirstMatchingClaimExtractor = JwtFirstMatchingClaimExtractor.builder()
                 .claimNames(Arrays.asList("https://identity.zalando.com/managed-id", "sub"))
                 .build();
 
-        Logbook logbook = Logbook.builder()
+        final AttributeExtractor jwtAllMatchingClaimsExtractor = JwtAllMatchingClaimsExtractor.builder()
+                .claimNames(Arrays.asList("iss", "exp", "iat"))
+                .build();
+
+        final List<AttributeExtractor> list = List.of(
+                jwtFirstMatchingClaimExtractor,
+                jwtAllMatchingClaimsExtractor,
+                new RespAttributeExtractor()
+        );
+
+        final Logbook logbook = Logbook.builder()
                 .strategy(new WithoutBodyStrategy())
-                .attributeExtractor(new CompositeAttributeExtractor(List.of(jwtSingleClaimExtractor, new RespAttributeExtractor())))
+                .attributeExtractor(new CompositeAttributeExtractor(list))
                 .sink(new DefaultSink(
                         new JsonHttpLogFormatter(),
                         new DefaultHttpLogWriter()
                 ))
                 .build();
 
-        CloseableHttpClient httpclient = HttpClientBuilder.create()
+        final CloseableHttpClient httpclient = HttpClientBuilder.create()
                 .addExecInterceptorFirst("Logbook", new LogbookHttpExecHandler(logbook))
                 .build();
 
-        HttpGet httpGet1 = new HttpGet("https://example.com/");
+        final HttpGet httpGet1 = new HttpGet("https://example.com/");
         httpGet1.addHeader(HttpHeaders.AUTHORIZATION, "Bearer " + serviceToken);
         httpclient.execute(httpGet1);
 
         System.out.println("-------------------------------");
 
-        HttpGet httpGet2 = new HttpGet("https://example.com/");
+        final HttpGet httpGet2 = new HttpGet("https://example.com/");
         httpGet2.addHeader(HttpHeaders.AUTHORIZATION, "Bearer " + userToken);
         httpclient.execute(httpGet2);
     }
 }
 
 class RespAttributeExtractor implements AttributeExtractor {
+    @Nonnull
     @Override
     public HttpAttributes extract(HttpRequest request, HttpResponse response) {
         return HttpAttributes.of("phrase", response.getReasonPhrase());

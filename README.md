@@ -42,13 +42,23 @@ It uses two JWT tokens in request as per
 The `Main` class uses a `CompositeAttributeExtractor` to delegate everything to the `WithoutBodyStrategy` class:
 
 ```java
-final JwtFirstMatchingClaimExtractor jwtSingleClaimExtractor = JwtFirstMatchingClaimExtractor.builder()
+final AttributeExtractor jwtFirstMatchingClaimExtractor = JwtFirstMatchingClaimExtractor.builder()
         .claimNames(Arrays.asList("https://identity.zalando.com/managed-id", "sub"))
         .build();
 
+final AttributeExtractor jwtAllMatchingClaimsExtractor = JwtAllMatchingClaimsExtractor.builder()
+        .claimNames(Arrays.asList("iss", "exp", "iat"))
+        .build();
+
+final List<AttributeExtractor> list = List.of(
+        jwtFirstMatchingClaimExtractor,
+        jwtAllMatchingClaimsExtractor,
+        new RespAttributeExtractor()
+        );
+
 final Logbook logbook = Logbook.builder()
         .strategy(new WithoutBodyStrategy())
-        .attributeExtractor(new CompositeAttributeExtractor(List.of(jwtSingleClaimExtractor, new RespAttributeExtractor())))
+        .attributeExtractor(new CompositeAttributeExtractor(list))
         .sink(new DefaultSink(
         new JsonHttpLogFormatter(),
         new DefaultHttpLogWriter()
