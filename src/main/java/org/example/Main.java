@@ -9,11 +9,13 @@ import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.HttpClientBuilder;
 import org.apache.hc.core5.http.HttpHeaders;
 import org.slf4j.LoggerFactory;
-import org.zalando.logbook.ForwardingStrategy;
-import org.zalando.logbook.attributes.JwtClaimExtractor;
+import org.zalando.logbook.HttpRequest;
+import org.zalando.logbook.HttpResponse;
 import org.zalando.logbook.Logbook;
-import org.zalando.logbook.attributes.RequestAttributesExtractor;
-import org.zalando.logbook.Strategy;
+import org.zalando.logbook.attributes.AttributeExtractor;
+import org.zalando.logbook.attributes.CompositeAttributeExtractor;
+import org.zalando.logbook.attributes.HttpAttributes;
+import org.zalando.logbook.attributes.JwtFirstMatchingClaimExtractor;
 import org.zalando.logbook.core.DefaultHttpLogWriter;
 import org.zalando.logbook.core.DefaultSink;
 import org.zalando.logbook.core.WithoutBodyStrategy;
@@ -22,8 +24,9 @@ import org.zalando.logbook.json.JsonHttpLogFormatter;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.List;
 
-@SuppressWarnings({"resource", "deprecation"})
+@SuppressWarnings("deprecation")
 @Slf4j
 public class Main {
     static {
@@ -39,8 +42,13 @@ public class Main {
 
 
     public static void main(String[] args) throws IOException {
+        final JwtFirstMatchingClaimExtractor jwtSingleClaimExtractor = JwtFirstMatchingClaimExtractor.builder()
+                .claimNames(Arrays.asList("https://identity.zalando.com/managed-id", "sub"))
+                .build();
+
         Logbook logbook = Logbook.builder()
-                .strategy(new MyStrategy())
+                .strategy(new WithoutBodyStrategy())
+                .attributeExtractor(new CompositeAttributeExtractor(List.of(jwtSingleClaimExtractor, new RespAttributeExtractor())))
                 .sink(new DefaultSink(
                         new JsonHttpLogFormatter(),
                         new DefaultHttpLogWriter()
@@ -63,15 +71,9 @@ public class Main {
     }
 }
 
-class MyStrategy implements ForwardingStrategy {
-
+class RespAttributeExtractor implements AttributeExtractor {
     @Override
-    public Strategy delegate() {
-        return new WithoutBodyStrategy();
-    }
-
-    @Override
-    public RequestAttributesExtractor getRequestAttributesExtractor() {
-        return new JwtClaimExtractor(Arrays.asList("https://identity.zalando.com/managed-id", "sub"));
+    public HttpAttributes extract(HttpRequest request, HttpResponse response) {
+        return HttpAttributes.of("phrase", response.getReasonPhrase());
     }
 }
