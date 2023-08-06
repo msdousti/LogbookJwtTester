@@ -39,11 +39,21 @@ It uses two JWT tokens in request as per
 }
 ```
 
-The `Main` class uses a `ForwardingStrategy` to delegate everything to the `WithoutBodyStrategy` class, ]
-while applying the following `RequestAttributesExtractor` to extract subject claims:
+The `Main` class uses a `CompositeAttributeExtractor` to delegate everything to the `WithoutBodyStrategy` class:
 
 ```java
-JwtClaimExtractor(Arrays.asList("https://identity.zalando.com/managed-id","sub"))
+final JwtFirstMatchingClaimExtractor jwtSingleClaimExtractor = JwtFirstMatchingClaimExtractor.builder()
+        .claimNames(Arrays.asList("https://identity.zalando.com/managed-id", "sub"))
+        .build();
+
+final Logbook logbook = Logbook.builder()
+        .strategy(new WithoutBodyStrategy())
+        .attributeExtractor(new CompositeAttributeExtractor(List.of(jwtSingleClaimExtractor, new RespAttributeExtractor())))
+        .sink(new DefaultSink(
+        new JsonHttpLogFormatter(),
+        new DefaultHttpLogWriter()
+        ))
+        .build();
 ```
 
 The above extractor will first look for a `managed-id` claim, and then for a `sub` claim.
@@ -52,13 +62,16 @@ Using a `JsonHttpLogFormatter`, the following output is generated (two request-r
 token):
 
 ```
-01:24:34.087 [main] TRACE org.zalando.logbook.Logbook -- {"origin":"local","type":"request","correlation":"da7a3ee1a275d71c","protocol":"HTTP/1.1","remote":"localhost","method":"GET","uri":"https://example.com/","host":"example.com","path":"/","scheme":"https","port":null,"attributes":{"subject":"stups_sales-order-service"},"headers":{"Authorization":["XXX"]}}
-01:24:34.654 [main] TRACE org.zalando.logbook.Logbook -- {"origin":"remote","type":"response","correlation":"da7a3ee1a275d71c","duration":662,"protocol":"HTTP/1.1","status":200,"headers":{"Accept-Ranges":["bytes"],"Age":["291354"],"Cache-Control":["max-age=604800"],"Content-Type":["text/html; charset=UTF-8"],"Date":["Sat, 22 Jul 2023 23:24:25 GMT"],"Etag":["\"3147526947+gzip\""],"Expires":["Sat, 29 Jul 2023 23:24:25 GMT"],"Last-Modified":["Thu, 17 Oct 2019 07:18:26 GMT"],"Server":["ECS (dcb/7EA2)"],"Vary":["Accept-Encoding"],"X-Cache":["HIT"]}}
+04:11:41.300 [main] TRACE org.zalando.logbook.Logbook -- {"origin":"local","type":"request","correlation":"91f87ec9c11e257b","protocol":"HTTP/1.1","remote":"localhost","method":"GET","uri":"https://example.com/","host":"example.com","path":"/","scheme":"https","port":null,"attributes":{"subject":"stups_sales-order-service"},"headers":{"Authorization":["XXX"]}}
+04:11:41.863 [main] TRACE org.zalando.logbook.Logbook -- {"origin":"remote","type":"response","correlation":"91f87ec9c11e257b","duration":679,"protocol":"HTTP/1.1","status":200,"attributes":{"phrase":"OK"},"headers":{"Accept-Ranges":["bytes"],"Age":["438563"],"Cache-Control":["max-age=604800"],"Content-Type":["text/html; charset=UTF-8"],"Date":["Sun, 06 Aug 2023 02:11:40 GMT"],"Etag":["\"3147526947+gzip\""],"Expires":["Sun, 13 Aug 2023 02:11:40 GMT"],"Last-Modified":["Thu, 17 Oct 2019 07:18:26 GMT"],"Server":["ECS (dcb/7EA2)"],"Vary":["Accept-Encoding"],"X-Cache":["HIT"]}}
 -------------------------------
-01:24:34.655 [main] TRACE org.zalando.logbook.Logbook -- {"origin":"local","type":"request","correlation":"dd396fc2e4a612eb","protocol":"HTTP/1.1","remote":"localhost","method":"GET","uri":"https://example.com/","host":"example.com","path":"/","scheme":"https","port":null,"attributes":{"subject":"wschoenborn"},"headers":{"Authorization":["XXX"]}}
-01:24:35.012 [main] TRACE org.zalando.logbook.Logbook -- {"origin":"remote","type":"response","correlation":"dd396fc2e4a612eb","duration":355,"protocol":"HTTP/1.1","status":200,"headers":{"Accept-Ranges":["bytes"],"Age":["291355"],"Cache-Control":["max-age=604800"],"Content-Type":["text/html; charset=UTF-8"],"Date":["Sat, 22 Jul 2023 23:24:26 GMT"],"Etag":["\"3147526947+gzip\""],"Expires":["Sat, 29 Jul 2023 23:24:26 GMT"],"Last-Modified":["Thu, 17 Oct 2019 07:18:26 GMT"],"Server":["ECS (dcb/7EA2)"],"Vary":["Accept-Encoding"],"X-Cache":["HIT"]}}
+04:11:41.864 [main] TRACE org.zalando.logbook.Logbook -- {"origin":"local","type":"request","correlation":"e1a41dca359fca53","protocol":"HTTP/1.1","remote":"localhost","method":"GET","uri":"https://example.com/","host":"example.com","path":"/","scheme":"https","port":null,"attributes":{"subject":"wschoenborn"},"headers":{"Authorization":["XXX"]}}
+04:11:42.243 [main] TRACE org.zalando.logbook.Logbook -- {"origin":"remote","type":"response","correlation":"e1a41dca359fca53","duration":379,"protocol":"HTTP/1.1","status":200,"attributes":{"phrase":"OK"},"headers":{"Accept-Ranges":["bytes"],"Age":["438563"],"Cache-Control":["max-age=604800"],"Content-Type":["text/html; charset=UTF-8"],"Date":["Sun, 06 Aug 2023 02:11:40 GMT"],"Etag":["\"3147526947+gzip\""],"Expires":["Sun, 13 Aug 2023 02:11:40 GMT"],"Last-Modified":["Thu, 17 Oct 2019 07:18:26 GMT"],"Server":["ECS (dcb/7EA2)"],"Vary":["Accept-Encoding"],"X-Cache":["HIT"]}}
 ```
 
 Notice the following in the request section:
 - `"attributes":{"subject":"stups_sales-order-service"}`
 - `"attributes":{"subject":"wschoenborn"}`
+
+And the following in the response section:
+- `attributes":{"phrase":"OK"}`
