@@ -13,13 +13,13 @@ import org.zalando.logbook.HttpRequest;
 import org.zalando.logbook.HttpResponse;
 import org.zalando.logbook.Logbook;
 import org.zalando.logbook.attributes.AttributeExtractor;
-import org.zalando.logbook.attributes.CompositeAttributeExtractor;
 import org.zalando.logbook.attributes.HttpAttributes;
-import org.zalando.logbook.attributes.JwtAllMatchingClaimsExtractor;
-import org.zalando.logbook.attributes.JwtFirstMatchingClaimExtractor;
 import org.zalando.logbook.core.DefaultHttpLogWriter;
 import org.zalando.logbook.core.DefaultSink;
 import org.zalando.logbook.core.WithoutBodyStrategy;
+import org.zalando.logbook.core.attributes.CompositeAttributeExtractor;
+import org.zalando.logbook.core.attributes.JwtAllMatchingClaimsExtractor;
+import org.zalando.logbook.core.attributes.JwtFirstMatchingClaimExtractor;
 import org.zalando.logbook.httpclient5.LogbookHttpExecHandler;
 import org.zalando.logbook.json.JsonHttpLogFormatter;
 
